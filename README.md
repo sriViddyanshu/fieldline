@@ -201,6 +201,6 @@ table while sharing reusable form behavior. Sites, work orders, and incidents
 retain their supporting CRUD pages.
 
 The Node API binds to localhost by default. Data API endpoints require a valid
-sign-in session. The light/dark appearance preference is saved in the current
-browser. Configure a reviewed reverse proxy and HTTPS before making an
-installation available to other computers.
+sign-in session. The light/dark appearance preference is saved in the current browser. Configure
+a reviewed reverse proxy and HTTPS before making an installation available to
+other computers.
