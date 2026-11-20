@@ -1,0 +1,3085 @@
+{
+  "info": {
+    "name": "Fieldline API",
+    "description": "Fieldline fleet and operations API. Set baseUrl to the API origin, sign in to establish a session cookie, and fill in IDs and request bodies before use. Imported toll history endpoints are read-only.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "vehicleId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "recordId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
+            },
+            "description": "Public database connectivity check."
+          }
+        },
+        {
+          "name": "Authentication status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "status"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Sign in",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Stores the session cookie returned by the API. Replace placeholders before sending.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"you@example.com\",\n  \"password\": \"<enter locally>\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Initial account setup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/setup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "setup"
+              ]
+            },
+            "description": "One-time administrator setup. Replace placeholders before sending.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Your Name\",\n  \"email\": \"you@example.com\",\n  \"password\": \"<enter locally>\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Current user",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Requires a signed-in session."
+          }
+        },
+        {
+          "name": "Sign out",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Clears the current session cookie."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Overview and lookups",
+      "item": [
+        {
+          "name": "Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "summary"
+              ]
+            },
+            "description": "Requires a signed-in session."
+          }
+        },
+        {
+          "name": "Sites options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/options/sites",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "options",
+                "sites"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Assets options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/options/assets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "options",
+                "assets"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Fleet activity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/fleet/activity",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fleet",
+                "activity"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Fleet activity by vehicle",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/fleet/activity?vehicle_id={{vehicleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fleet",
+                "activity?vehicle_id={{vehicleId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "customers options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/fleet-options/customers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fleet-options",
+                "customers"
+              ]
+            }
+          }
+        },
+        {
+          "name": "contracts options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/fleet-options/contracts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fleet-options",
+                "contracts"
+              ]
+            }
+          }
+        },
+        {
+          "name": "drivers options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/fleet-options/drivers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fleet-options",
+                "drivers"
+              ]
+            }
+          }
+        },
+        {
+          "name": "work-orders options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/fleet-options/work-orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fleet-options",
+                "work-orders"
+              ]
+            }
+          }
+        },
+        {
+          "name": "toll-accounts options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/fleet-options/toll-accounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fleet-options",
+                "toll-accounts"
+              ]
+            }
+          }
+        },
+        {
+          "name": "transponders options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/fleet-options/transponders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fleet-options",
+                "transponders"
+              ]
+            }
+          }
+        },
+        {
+          "name": "transactions options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/fleet-options/transactions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fleet-options",
+                "transactions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "violations options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/fleet-options/violations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fleet-options",
+                "violations"
+              ]
+            }
+          }
+        },
+        {
+          "name": "tasks options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/fleet-options/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fleet-options",
+                "tasks"
+              ]
+            }
+          }
+        },
+        {
+          "name": "vehicles options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/fleet-options/vehicles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fleet-options",
+                "vehicles"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fleet operations",
+      "item": [
+        {
+          "name": "customers",
+          "item": [
+            {
+              "name": "List customers",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/customers",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "customers"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create customers",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/customers",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "customers"
+                  ]
+                },
+                "description": "Creates a record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update customers",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/customers/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "customers",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a record. Fill in the record ID and request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete customers",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/customers/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "customers",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "contracts",
+          "item": [
+            {
+              "name": "List contracts",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/contracts",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "contracts"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create contracts",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/contracts",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "contracts"
+                  ]
+                },
+                "description": "Creates a record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update contracts",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/contracts/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "contracts",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a record. Fill in the record ID and request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete contracts",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/contracts/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "contracts",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "drivers",
+          "item": [
+            {
+              "name": "List drivers",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/drivers",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "drivers"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create drivers",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/drivers",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "drivers"
+                  ]
+                },
+                "description": "Creates a record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update drivers",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/drivers/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "drivers",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a record. Fill in the record ID and request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete drivers",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/drivers/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "drivers",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "driver-assignments",
+          "item": [
+            {
+              "name": "List driver-assignments",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/driver-assignments",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "driver-assignments"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create driver-assignments",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/driver-assignments",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "driver-assignments"
+                  ]
+                },
+                "description": "Creates a record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update driver-assignments",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/driver-assignments/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "driver-assignments",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a record. Fill in the record ID and request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete driver-assignments",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/driver-assignments/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "driver-assignments",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "toll-accounts",
+          "item": [
+            {
+              "name": "List toll-accounts",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/toll-accounts",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "toll-accounts"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create toll-accounts",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/toll-accounts",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "toll-accounts"
+                  ]
+                },
+                "description": "Creates a record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update toll-accounts",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/toll-accounts/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "toll-accounts",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a record. Fill in the record ID and request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete toll-accounts",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/toll-accounts/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "toll-accounts",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "transponders",
+          "item": [
+            {
+              "name": "List transponders",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/transponders",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "transponders"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create transponders",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/transponders",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "transponders"
+                  ]
+                },
+                "description": "Creates a record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update transponders",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/transponders/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "transponders",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a record. Fill in the record ID and request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete transponders",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/transponders/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "transponders",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "transactions",
+          "item": [
+            {
+              "name": "List transactions",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/transactions",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "transactions"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create transactions",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/transactions",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "transactions"
+                  ]
+                },
+                "description": "Creates a record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update transactions",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/transactions/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "transactions",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a record. Fill in the record ID and request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete transactions",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/transactions/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "transactions",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "violations",
+          "item": [
+            {
+              "name": "List violations",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/violations",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "violations"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create violations",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/violations",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "violations"
+                  ]
+                },
+                "description": "Creates a record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update violations",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/violations/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "violations",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a record. Fill in the record ID and request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete violations",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/violations/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "violations",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "payments",
+          "item": [
+            {
+              "name": "List payments",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/payments",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "payments"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create payments",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/payments",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "payments"
+                  ]
+                },
+                "description": "Creates a record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update payments",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/payments/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "payments",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a record. Fill in the record ID and request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete payments",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/payments/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "payments",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "maintenance",
+          "item": [
+            {
+              "name": "List maintenance",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/maintenance",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "maintenance"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create maintenance",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/maintenance",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "maintenance"
+                  ]
+                },
+                "description": "Creates a record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update maintenance",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/maintenance/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "maintenance",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a record. Fill in the record ID and request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete maintenance",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/maintenance/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "maintenance",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "trips",
+          "item": [
+            {
+              "name": "List trips",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/trips",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "trips"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create trips",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/trips",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "trips"
+                  ]
+                },
+                "description": "Creates a record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update trips",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/trips/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "trips",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a record. Fill in the record ID and request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete trips",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/trips/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "trips",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "tasks",
+          "item": [
+            {
+              "name": "List tasks",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/tasks",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "tasks"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create tasks",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/tasks",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "tasks"
+                  ]
+                },
+                "description": "Creates a record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update tasks",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/tasks/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "tasks",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a record. Fill in the record ID and request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete tasks",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/tasks/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "tasks",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "approvals",
+          "item": [
+            {
+              "name": "List approvals",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/approvals",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "approvals"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create approvals",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/approvals",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "approvals"
+                  ]
+                },
+                "description": "Creates a record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update approvals",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/approvals/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "approvals",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a record. Fill in the record ID and request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete approvals",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/approvals/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "approvals",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "toll-payment-history",
+          "item": [
+            {
+              "name": "List toll-payment-history",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/toll-payment-history",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "toll-payment-history"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "toll-account-ledger",
+          "item": [
+            {
+              "name": "List toll-account-ledger",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/toll-account-ledger",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "toll-account-ledger"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "toll-account-balances",
+          "item": [
+            {
+              "name": "List toll-account-balances",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fleet/toll-account-balances",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fleet",
+                    "toll-account-balances"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Vehicles",
+      "item": [
+        {
+          "name": "List vehicles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/vehicles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "vehicles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create vehicle",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/vehicles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "vehicles"
+              ]
+            },
+            "description": "Creates a vehicle. Fill in the request body before sending.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get vehicle",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "vehicles",
+                "{{vehicleId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update vehicle",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "vehicles",
+                "{{vehicleId}}"
+              ]
+            },
+            "description": "Updates a vehicle. Fill in the request body before sending.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "ownership",
+          "item": [
+            {
+              "name": "List vehicle ownership",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/ownership",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "ownership"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Add vehicle ownership",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/ownership",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "ownership"
+                  ]
+                },
+                "description": "Adds a history record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update vehicle ownership",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/ownership/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "ownership",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a history record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete vehicle ownership",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/ownership/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "ownership",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a history record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "registrations",
+          "item": [
+            {
+              "name": "List vehicle registrations",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/registrations",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "registrations"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Add vehicle registrations",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/registrations",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "registrations"
+                  ]
+                },
+                "description": "Adds a history record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update vehicle registrations",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/registrations/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "registrations",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a history record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete vehicle registrations",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/registrations/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "registrations",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a history record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "assignments",
+          "item": [
+            {
+              "name": "List vehicle assignments",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/assignments",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "assignments"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Add vehicle assignments",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/assignments",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "assignments"
+                  ]
+                },
+                "description": "Adds a history record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update vehicle assignments",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/assignments/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "assignments",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a history record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete vehicle assignments",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/assignments/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "assignments",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a history record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "events",
+          "item": [
+            {
+              "name": "List vehicle events",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/events",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "events"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Add vehicle events",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/events",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "events"
+                  ]
+                },
+                "description": "Adds a history record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update vehicle events",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/events/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "events",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a history record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete vehicle events",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/events/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "events",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a history record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "mileage",
+          "item": [
+            {
+              "name": "List vehicle mileage",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/mileage",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "mileage"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Add vehicle mileage",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/mileage",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "mileage"
+                  ]
+                },
+                "description": "Adds a history record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update vehicle mileage",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/mileage/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "mileage",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a history record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete vehicle mileage",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/mileage/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "mileage",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a history record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "documents",
+          "item": [
+            {
+              "name": "List vehicle documents",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/documents",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "documents"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Add vehicle documents",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/documents",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "documents"
+                  ]
+                },
+                "description": "Adds a history record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update vehicle documents",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/documents/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "documents",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a history record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete vehicle documents",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/vehicles/{{vehicleId}}/documents/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "vehicles",
+                    "{{vehicleId}}",
+                    "documents",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a history record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Core operations",
+      "item": [
+        {
+          "name": "sites",
+          "item": [
+            {
+              "name": "List sites",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/sites",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "sites"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create sites",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/sites",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "sites"
+                  ]
+                },
+                "description": "Creates a record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update sites",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/sites/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "sites",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a record. Fill in the record ID and request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete sites",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/sites/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "sites",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "work-orders",
+          "item": [
+            {
+              "name": "List work-orders",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/work-orders",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "work-orders"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create work-orders",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/work-orders",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "work-orders"
+                  ]
+                },
+                "description": "Creates a record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update work-orders",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/work-orders/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "work-orders",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a record. Fill in the record ID and request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete work-orders",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/work-orders/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "work-orders",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "incidents",
+          "item": [
+            {
+              "name": "List incidents",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/incidents",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "incidents"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create incidents",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/incidents",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "incidents"
+                  ]
+                },
+                "description": "Creates a record. Fill in the request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Update incidents",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/incidents/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "incidents",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Updates a record. Fill in the record ID and request body before sending.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Delete incidents",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/incidents/{{recordId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "incidents",
+                    "{{recordId}}"
+                  ]
+                },
+                "description": "Deletes a record. Fill in the record ID before sending."
+              }
+            }
+          ]
+        },
+        {
+          "name": "Legacy assets (read-only)",
+          "item": [
+            {
+              "name": "List assets",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/assets",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "assets"
+                  ]
+                },
+                "description": "Use the Vehicles folder for vehicle creation and updates."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
