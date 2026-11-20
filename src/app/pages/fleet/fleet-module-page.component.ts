@@ -7,7 +7,7 @@ import { FormsModule } from "@angular/forms";
 type FleetModule =
   | "customers" | "contracts" | "drivers" | "driver-assignments" | "toll-accounts" | "transponders"
   | "transactions" | "violations" | "payments" | "maintenance" | "trips"
-  | "tasks" | "approvals" | "activity";
+  | "tasks" | "approvals" | "activity" | "toll-payment-history" | "toll-account-ledger" | "toll-account-balances";
 
 type FleetRow = Record<string, unknown>;
 
@@ -79,20 +79,42 @@ const PAGES: Record<FleetModule, FleetPageDefinition> = {
       { key: "customer_id", label: "Customer", lookup: "customers" }, { key: "contract_id", label: "Contract", lookup: "contracts" },
       { key: "assignment_start", label: "Assignment starts", type: "datetime-local", required: true },
       { key: "assignment_end", label: "Assignment ends", type: "datetime-local" },
-      { key: "status", label: "Status", options: ["Assigned", "Unassigned", "Ended"], required: true },
+      { key: "status", label: "Status", options: ["Assigned", "Unassigned", "Ended", "Suspended"], required: true },
       { key: "handover_notes", label: "Handover notes", type: "textarea" },
     ],
     columns: [{ key: "vehicle_name", label: "Vehicle" }, { key: "driver_name", label: "Driver" }, { key: "customer_name", label: "Customer" }, { key: "contract_number", label: "Contract" }, { key: "assignment_start", label: "From" }, { key: "assignment_end", label: "Through" }, { key: "status", label: "Status" }, { key: "handover_notes", label: "Handover" }],
   },
   "toll-accounts": {
-    title: "Toll accounts", description: "Provider and authority accounts used to reconcile toll activity.", singular: "toll account", endpoint: "toll-accounts",
+    title: "Toll accounts", description: "Account ownership, toll program, billing, replenishment settings, and dated balance details.", singular: "toll account", endpoint: "toll-accounts",
     fields: [
       { key: "provider", label: "Provider", required: true }, { key: "authority", label: "Toll authority" },
-      { key: "account_reference", label: "Account reference", required: true },
-      { key: "status", label: "Status", options: ["Active", "Inactive", "Suspended"], required: true },
+      { key: "account_reference", label: "Account reference", required: true }, { key: "account_display_name", label: "Account display name" },
+      { key: "account_holder_legal_name", label: "Account holder legal name" },
+      { key: "account_holder_type", label: "Account holder type", options: ["FMC", "Customer"] },
+      { key: "account_opened", label: "Account opened", type: "date" },
+      { key: "billing_method", label: "Billing method" },
+      { key: "auto_replenishment", label: "Auto replenishment", options: ["Yes", "No"], required: true },
+      { key: "auto_replenishment_threshold", label: "Replenishment threshold", type: "number" },
+      { key: "last_known_balance", label: "Last known balance", type: "number" }, { key: "balance_as_of", label: "Balance as of", type: "datetime-local" },
+      { key: "payment_method_status", label: "Payment method status" },
+      { key: "fmc_branch", label: "FMC branch" }, { key: "service_region", label: "Service region" },
+      { key: "portal_reference", label: "Portal reference (demo)" }, { key: "last_sync_at", label: "Last sync", type: "datetime-local" },
+      { key: "status", label: "Status", options: ["Active", "Inactive", "Suspended", "Closed"], required: true },
       { key: "notes", label: "Notes", type: "textarea" },
     ],
-    columns: [{ key: "provider", label: "Provider" }, { key: "authority", label: "Authority" }, { key: "account_reference", label: "Account reference" }, { key: "status", label: "Status" }, { key: "notes", label: "Notes" }],
+    columns: [{ key: "account_reference", label: "Account reference" }, { key: "account_display_name", label: "Account" }, { key: "provider", label: "Toll program" }, { key: "account_holder_legal_name", label: "Account holder" }, { key: "account_holder_type", label: "Holder type" }, { key: "status", label: "Status" }, { key: "billing_method", label: "Billing method" }, { key: "auto_replenishment", label: "Auto replenish" }, { key: "auto_replenishment_threshold", label: "Threshold" }, { key: "last_known_balance", label: "Last balance" }, { key: "balance_as_of", label: "Balance as of" }, { key: "payment_method_status", label: "Payment method" }, { key: "fmc_branch", label: "Branch" }, { key: "service_region", label: "Service region" }],
+  },
+  "toll-payment-history": {
+    title: "Toll payment history", description: "Read-only source history of toll account payment events, including failed attempts and items awaiting reconciliation.", singular: "toll payment event", endpoint: "toll-payment-history", readOnly: true, fields: [],
+    columns: [{ key: "payment_reference", label: "Payment record" }, { key: "transaction_reference", label: "Transaction" }, { key: "related_notice_number", label: "Related notice" }, { key: "vehicle_name", label: "Vehicle" }, { key: "account_reference", label: "Toll account" }, { key: "passage_at", label: "Passage time" }, { key: "payment_at", label: "Payment event" }, { key: "payment_status", label: "Payment status" }, { key: "amount", label: "Amount" }, { key: "provider_payment_reference", label: "Provider reference" }, { key: "exception_code", label: "Exception" }],
+  },
+  "toll-account-ledger": {
+    title: "Toll account ledger", description: "Read-only account opening balances, toll debits, funding credits, and running balances from the source ledger.", singular: "ledger entry", endpoint: "toll-account-ledger", readOnly: true, fields: [],
+    columns: [{ key: "ledger_reference", label: "Ledger entry" }, { key: "account_reference", label: "Toll account" }, { key: "occurred_at", label: "When" }, { key: "entry_type", label: "Entry type" }, { key: "transaction_reference", label: "Transaction" }, { key: "payment_reference", label: "Payment/funding ref" }, { key: "vehicle_name", label: "Vehicle" }, { key: "signed_amount", label: "Signed amount" }, { key: "running_balance", label: "Running balance" }, { key: "currency", label: "Currency" }],
+  },
+  "toll-account-balances": {
+    title: "Toll account balances", description: "Read-only source balance snapshots and reconciliation results. Balances are snapshots, not live account values.", singular: "balance snapshot", endpoint: "toll-account-balances", readOnly: true, fields: [],
+    columns: [{ key: "account_reference", label: "Toll account" }, { key: "account_holder", label: "Account holder" }, { key: "account_status", label: "Status" }, { key: "snapshot_at", label: "As of" }, { key: "opening_balance", label: "Opening" }, { key: "replenishment_credits", label: "Credits" }, { key: "settled_toll_debits", label: "Settled toll debits" }, { key: "calculated_ending_balance", label: "Calculated balance" }, { key: "source_ending_balance", label: "Source balance" }, { key: "balance_difference", label: "Difference" }, { key: "reconciliation_result", label: "Reconciliation" }, { key: "successful_toll_charges", label: "Successful charges" }, { key: "failed_attempts", label: "Failed attempts" }, { key: "currency", label: "Currency" }],
   },
   transponders: {
     title: "Transponders", description: "Effective-dated transponder-to-vehicle and plate assignments.", singular: "transponder assignment", endpoint: "transponders",
@@ -134,7 +156,7 @@ const PAGES: Record<FleetModule, FleetPageDefinition> = {
       { key: "case_status", label: "Case status", options: ["Open", "In review", "Disputed", "Paid", "Closed"], required: true },
       { key: "case_owner", label: "Case owner" }, { key: "next_action", label: "Next action" },
     ],
-    columns: [{ key: "notice_number", label: "Notice" }, { key: "authority", label: "Authority" }, { key: "vehicle_name", label: "Vehicle" }, { key: "transaction_reference", label: "Transaction" }, { key: "plate_shown", label: "Plate" }, { key: "amount", label: "Amount" }, { key: "deadline", label: "Deadline" }, { key: "verification_status", label: "Verification" }, { key: "approval_status", label: "Approval" }, { key: "authority_outcome", label: "Outcome" }, { key: "case_status", label: "Case" }],
+    columns: [{ key: "source_case_id", label: "Case ID" }, { key: "notice_number", label: "Notice" }, { key: "authority", label: "Authority" }, { key: "vehicle_name", label: "Vehicle" }, { key: "transaction_reference", label: "Transaction" }, { key: "payment_reference", label: "Payment record" }, { key: "exception_code", label: "Exception" }, { key: "plate_shown", label: "Plate" }, { key: "amount", label: "Notice total" }, { key: "case_opened_at", label: "Opened" }, { key: "resolution_at", label: "Resolved" }, { key: "verification_status", label: "Verification" }, { key: "approval_status", label: "Approval" }, { key: "authority_outcome", label: "Authority outcome" }, { key: "case_status", label: "Case" }],
   },
   payments: {
     title: "Payments & chargebacks", description: "Keep authority payments and customer chargebacks as separate, independently reconciled records.", singular: "payment or chargeback", endpoint: "payments",
@@ -287,7 +309,7 @@ export class FleetModulePageComponent implements OnInit {
     if (key === "change_data") return this.changeSummary(value);
     if (value == null || value === "") return "—";
     if (typeof value === "object") return this.asText(value);
-    if (key.endsWith("_at")) return this.asText(value).replace("T", " ").slice(0, 19);
+    if (key.endsWith("_at") || key === "balance_as_of") return this.asText(value).replace("T", " ").slice(0, 19);
     return this.asText(value);
   }
 
@@ -380,8 +402,9 @@ export class FleetModulePageComponent implements OnInit {
   private formValue(key: string, value: unknown): string {
     if (value == null) return "";
     const text = this.asText(value);
-    if (key.endsWith("_at") || key.endsWith("_start") || key.endsWith("_end")) return text.replace(" ", "T").slice(0, 16);
-    if (key.endsWith("_date")) return text.slice(0, 10);
+    const type = this.definition.fields.find((field) => field.key === key)?.type;
+    if (type === "datetime-local" || key.endsWith("_at") || key.endsWith("_start") || key.endsWith("_end")) return text.replace(" ", "T").slice(0, 16);
+    if (type === "date" || key.endsWith("_date")) return text.slice(0, 10);
     return text;
   }
 

@@ -27,15 +27,33 @@ database, or records.
    contract, driver and driver-assignment, toll, violation, payment,
    maintenance, trip, task, approval, and activity-log tables. It uses
    `CREATE TABLE IF NOT EXISTS` so it can safely be re-run.
-5. For a fresh database, run `database/schema.sql` first, then
-   `database/fleet-operations-migration.sql`.
-6. If the Workbench account cannot create tables, ask a DBA to run the
+5. If the vehicle schema was installed before unknown plate-history start dates
+   were supported, run `database/vehicle-master-import-migration.sql`. It allows
+   the start date of a current plate to remain unknown rather than inventing a
+   date.
+6. To store toll payment events, account ledger entries, and balance snapshots,
+   run `database/toll-payment-history-migration.sql` after the fleet operations
+   migration.
+7. For an existing installation with toll accounts, run
+   `database/toll-account-master-migration.sql` once to add structured account
+   holder, billing, replenishment, balance, and sync fields before importing
+   the account master workbook. Fresh databases receive these fields from the
+   fleet operations migration.
+8. For an existing installation with toll transactions, run
+   `database/historical-violations-migration.sql` once before importing
+   violation history. Fresh databases receive these fields from the fleet
+   operations migration.
+9. For a fresh database, run `database/schema.sql` first, then
+   `database/fleet-operations-migration.sql`,
+   `database/toll-payment-history-migration.sql`, and
+   `database/historical-violations-migration.sql`.
+10. If the Workbench account cannot create tables, ask a DBA to run the
    appropriate script against the `fieldline` database.
-7. Ask the DBA to create a dedicated `fieldline_app` user scoped to the machine
+11. Ask the DBA to create a dedicated `fieldline_app` user scoped to the machine
    running Fieldline and grant it only `SELECT`, `INSERT`, `UPDATE`, and
    `DELETE` on `fieldline.*`. The app does not need schema-creation privileges.
    Never run the app with the MySQL root account.
-8. For the larger fleet-management demo, open and run
+12. For the larger fleet-management demo, open and run
    `database/fleet-test-data.sql` after applying the fleet operations migration.
    It creates ten clearly labeled fictional vehicles and linked records for
    customer, contract, driver, toll, case, payment, maintenance, trip, approval,

@@ -43,7 +43,7 @@ const vehicleStatuses = ["In service", "In yard", "Out for maintenance", "Stolen
 const vehicleMaster = {
   table: "assets",
   fields: [
-    "name", "vehicle_type", "internal_asset_id", "fleet_unit_number", "vin", "manufacturer", "model", "year",
+    "name", "category", "vehicle_type", "internal_asset_id", "fleet_unit_number", "vin", "manufacturer", "model", "year",
     "color", "fuel_type", "ownership_type", "legal_owner", "leasing_company", "managing_fmc", "fleet_entry_date",
     "fleet_exit_date", "acquisition_date", "lease_start_date", "lease_end_date", "site_id", "status",
   ],
@@ -60,15 +60,15 @@ const vehicleHistory = {
   registrations: {
     table: "vehicle_registrations",
     fields: ["plate_number", "issuing_state", "plate_type", "registration_expiration", "effective_start", "effective_end", "document_id"],
-    required: ["plate_number", "effective_start"],
-    nullable: ["registration_expiration", "effective_end", "document_id"],
+    required: ["plate_number"],
+    nullable: ["registration_expiration", "effective_start", "effective_end", "document_id"],
   },
   assignments: {
     table: "vehicle_assignments",
     fields: ["customer", "contract", "assignment_status", "assigned_driver", "driver_pool", "branch", "yard", "assignment_start", "assignment_end", "handover_notes", "handover_document_id"],
     required: ["assignment_start"],
     nullable: ["assignment_end", "handover_document_id"],
-    values: { assignment_status: ["Assigned", "Unassigned"] },
+    values: { assignment_status: ["Assigned", "Unassigned", "Ended", "Suspended"] },
   },
   events: {
     table: "vehicle_events",
@@ -120,14 +120,14 @@ const fleetModules = {
     fields: ["vehicle_id", "driver_id", "customer_id", "contract_id", "assignment_start", "assignment_end", "status", "handover_notes"],
     required: ["vehicle_id", "assignment_start"],
     nullable: ["driver_id", "customer_id", "contract_id", "assignment_end"],
-    values: { status: ["Assigned", "Unassigned", "Ended"] },
+    values: { status: ["Assigned", "Unassigned", "Ended", "Suspended"] },
   },
   "toll-accounts": {
     table: "toll_accounts",
-    fields: ["provider", "authority", "account_reference", "status", "notes"],
+    fields: ["provider", "authority", "account_reference", "account_display_name", "account_holder_legal_name", "account_holder_type", "account_opened", "billing_method", "auto_replenishment", "auto_replenishment_threshold", "last_known_balance", "balance_as_of", "payment_method_status", "fmc_branch", "service_region", "portal_reference", "last_sync_at", "status", "notes"],
     required: ["provider", "account_reference"],
-    nullable: [],
-    values: { status: ["Active", "Inactive", "Suspended"] },
+    nullable: ["account_opened", "auto_replenishment_threshold", "last_known_balance", "balance_as_of", "last_sync_at"],
+    values: { status: ["Active", "Inactive", "Suspended", "Closed"], auto_replenishment: ["Yes", "No"] },
   },
   transponders: {
     table: "toll_transponders",
@@ -203,9 +203,13 @@ async function initializeSchema() {
     await pool.query("SELECT id FROM fleet_activity_log LIMIT 0");
     await pool.query("SELECT id FROM fleet_customers LIMIT 0");
     await pool.query("SELECT id FROM fleet_driver_assignments LIMIT 0");
+    await pool.query("SELECT id FROM toll_payment_events LIMIT 0");
+    await pool.query("SELECT id FROM toll_account_ledger LIMIT 0");
+    await pool.query("SELECT id FROM toll_account_balance_snapshots LIMIT 0");
+    await pool.query("SELECT source_case_id, payment_event_id FROM toll_violations LIMIT 0");
   } catch (error) {
     if (error?.code === "ER_NO_SUCH_TABLE" || error?.code === "ER_BAD_FIELD_ERROR") {
-      throw new Error("Vehicle fleet tables are missing. Ask a DBA to run database/vehicle-fleet-migration.sql and database/fleet-operations-migration.sql, or use database/schema.sql for a fresh database.");
+      throw new Error("Vehicle fleet tables are missing. Ask a DBA to run database/vehicle-fleet-migration.sql, database/fleet-operations-migration.sql, and database/toll-payment-history-migration.sql, or use database/schema.sql for a fresh database.");
     }
     throw error;
   }
@@ -467,6 +471,7 @@ async function readTable(entity) {
 
 async function saveVehicle(id, body, actor) {
   const input = cleanInput(body, vehicleMaster);
+  const hasCategory = Object.hasOwn(body, "category");
   if (!vehicleTypes.includes(input.vehicle_type)) {
     throw Object.assign(new Error("Choose Truck, Car, Trailer, or Equipment as the vehicle type."), { status: 400 });
   }
@@ -480,7 +485,6 @@ async function saveVehicle(id, body, actor) {
     const [sites] = await pool.execute("SELECT id FROM sites WHERE id = ?", [input.site_id]);
     if (!sites.length) throw Object.assign(new Error("The selected site does not exist."), { status: 400 });
   }
-  input.category = input.vehicle_type;
   const connection = await pool.getConnection();
   const vehicleId = id || randomUUID();
   try {
@@ -494,10 +498,12 @@ async function saveVehicle(id, body, actor) {
       }
       before = existing[0];
       previousStatus = before.status;
+      input.category = hasCategory ? input.category : before.category;
       const keys = Object.keys(input);
       const assignments = keys.map((key) => `\`${key}\` = ?`).join(", ");
       await connection.execute(`UPDATE assets SET ${assignments} WHERE id = ?`, [...keys.map((key) => input[key]), id]);
     } else {
+      input.category = hasCategory ? input.category : input.vehicle_type;
       const keys = ["id", ...Object.keys(input)];
       await connection.execute(
         `INSERT INTO assets (${keys.map((key) => `\`${key}\``).join(", ")}) VALUES (${keys.map(() => "?").join(", ")})`,
@@ -735,10 +741,13 @@ async function readFleetModule(resource) {
     contracts: "SELECT c.*, f.name AS customer_name FROM fleet_contracts c JOIN fleet_customers f ON f.id = c.customer_id ORDER BY c.updated_at DESC",
     drivers: "SELECT d.*, c.name AS customer_name FROM fleet_drivers d LEFT JOIN fleet_customers c ON c.id = d.customer_id ORDER BY d.updated_at DESC",
     "driver-assignments": "SELECT a.*, v.name AS vehicle_name, d.name AS driver_name, c.name AS customer_name, f.contract_number FROM fleet_driver_assignments a JOIN assets v ON v.id = a.vehicle_id LEFT JOIN fleet_drivers d ON d.id = a.driver_id LEFT JOIN fleet_customers c ON c.id = a.customer_id LEFT JOIN fleet_contracts f ON f.id = a.contract_id ORDER BY a.assignment_start DESC",
-    "toll-accounts": "SELECT * FROM toll_accounts ORDER BY updated_at DESC",
+    "toll-accounts": "SELECT ta.*, DATE_FORMAT(ta.account_opened, '%Y-%m-%d') AS account_opened, DATE_FORMAT(ta.balance_as_of, '%Y-%m-%d %H:%i:%s') AS balance_as_of, DATE_FORMAT(ta.last_sync_at, '%Y-%m-%d %H:%i:%s') AS last_sync_at FROM toll_accounts ta ORDER BY ta.updated_at DESC",
+    "toll-payment-history": "SELECT p.payment_reference, t.transaction_reference, p.related_notice_number, v.name AS vehicle_name, p.plate_number, a.account_reference, p.passage_at, p.payment_at, p.payment_type, p.payment_status, p.amount, p.currency, p.provider_payment_reference, p.ledger_entry_reference, p.exception_code, p.investigation_notes FROM toll_payment_events p JOIN toll_transactions t ON t.id = p.transaction_id JOIN assets v ON v.id = p.vehicle_id JOIN toll_accounts a ON a.id = p.toll_account_id ORDER BY p.payment_at DESC",
+    "toll-account-ledger": "SELECT l.ledger_reference, a.account_reference, l.occurred_at, l.entry_type, l.transaction_reference, l.payment_reference, v.name AS vehicle_name, l.external_reference, l.signed_amount, l.running_balance, l.currency, l.notes FROM toll_account_ledger l JOIN toll_accounts a ON a.id = l.toll_account_id LEFT JOIN assets v ON v.id = l.vehicle_id ORDER BY l.occurred_at DESC, l.ledger_reference",
+    "toll-account-balances": "SELECT a.account_reference, b.account_holder, b.account_status, b.snapshot_at, b.opening_balance, b.replenishment_credits, b.settled_toll_debits, b.calculated_ending_balance, b.source_ending_balance, b.balance_difference, b.reconciliation_result, b.successful_toll_charges, b.failed_attempts, b.currency FROM toll_account_balance_snapshots b JOIN toll_accounts a ON a.id = b.toll_account_id ORDER BY b.snapshot_at DESC, a.account_reference",
     transponders: "SELECT t.*, a.provider AS provider_name, v.name AS vehicle_name FROM toll_transponders t JOIN toll_accounts a ON a.id = t.toll_account_id LEFT JOIN assets v ON v.id = t.vehicle_id ORDER BY t.updated_at DESC",
     transactions: "SELECT t.*, a.provider AS provider_name, v.name AS vehicle_name FROM toll_transactions t LEFT JOIN toll_accounts a ON a.id = t.toll_account_id LEFT JOIN assets v ON v.id = t.vehicle_id ORDER BY t.toll_at DESC",
-    violations: "SELECT c.*, v.name AS vehicle_name, t.transaction_reference FROM toll_violations c LEFT JOIN assets v ON v.id = c.vehicle_id LEFT JOIN toll_transactions t ON t.id = c.transaction_id ORDER BY c.updated_at DESC",
+    violations: "SELECT c.*, v.name AS vehicle_name, t.transaction_reference, p.payment_reference FROM toll_violations c LEFT JOIN assets v ON v.id = c.vehicle_id LEFT JOIN toll_transactions t ON t.id = c.transaction_id LEFT JOIN toll_payment_events p ON p.id = c.payment_event_id ORDER BY c.updated_at DESC",
     payments: "SELECT p.*, v.name AS vehicle_name, c.name AS customer_name, x.notice_number FROM fleet_payments p LEFT JOIN assets v ON v.id = p.vehicle_id LEFT JOIN fleet_customers c ON c.id = p.customer_id LEFT JOIN toll_violations x ON x.id = p.violation_id ORDER BY p.updated_at DESC",
     maintenance: "SELECT m.*, v.name AS vehicle_name, w.title AS work_order_title FROM fleet_maintenance m JOIN assets v ON v.id = m.vehicle_id LEFT JOIN work_orders w ON w.id = m.work_order_id ORDER BY m.updated_at DESC",
     trips: "SELECT t.*, v.name AS vehicle_name FROM fleet_trips t JOIN assets v ON v.id = t.vehicle_id ORDER BY t.trip_start DESC",
@@ -964,11 +973,12 @@ async function handle(req, res) {
       if (vehicleId) await ensureVehicle(vehicleId);
       return sendJson(res, 200, await readFleetActivity(vehicleId));
     }
-    const fleetMatch = path.match(/^\/api\/fleet\/(customers|contracts|drivers|driver-assignments|toll-accounts|transponders|transactions|violations|payments|maintenance|trips|tasks|approvals)(?:\/([^/]+))?$/);
+    const fleetMatch = path.match(/^\/api\/fleet\/(customers|contracts|drivers|driver-assignments|toll-accounts|transponders|transactions|violations|payments|maintenance|trips|tasks|approvals|toll-payment-history|toll-account-ledger|toll-account-balances)(?:\/([^/]+))?$/);
     if (fleetMatch) {
       const [, resource, rawId] = fleetMatch;
       const id = rawId ? decodeURIComponent(rawId) : null;
       if (req.method === "GET" && !id) return sendJson(res, 200, await readFleetModule(resource));
+      if (["toll-payment-history", "toll-account-ledger", "toll-account-balances"].includes(resource)) return sendJson(res, 405, { error: "This imported toll history is read-only." });
       if (req.method === "POST" && !id) return sendJson(res, 201, await saveFleetModule(resource, null, await readJson(req), actor));
       if (req.method === "PUT" && id) return sendJson(res, 200, await saveFleetModule(resource, id, await readJson(req), actor));
       if (req.method === "DELETE" && id) return sendJson(res, 200, await deleteFleetModule(resource, id, actor));

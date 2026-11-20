@@ -68,7 +68,7 @@ CREATE TABLE vehicle_registrations (
   issuing_state VARCHAR(80) NOT NULL DEFAULT '',
   plate_type VARCHAR(60) NOT NULL DEFAULT '',
   registration_expiration DATE NULL,
-  effective_start DATE NOT NULL,
+  effective_start DATE NULL,
   effective_end DATE NULL,
   document_id CHAR(36) NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),

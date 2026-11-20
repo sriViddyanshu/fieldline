@@ -25,6 +25,7 @@ interface HistorySection {
 const VEHICLE_FIELDS: Field[] = [
   { key: "name", label: "Vehicle name", required: true },
   { key: "vehicle_type", label: "Vehicle type", options: ["Truck", "Car", "Trailer", "Equipment"], required: true },
+  { key: "category", label: "Body style / source category" },
   { key: "internal_asset_id", label: "Internal asset ID", required: true },
   { key: "fleet_unit_number", label: "Fleet unit number" },
   { key: "vin", label: "VIN" },
@@ -64,7 +65,7 @@ const HISTORY: HistorySection[] = [
     fields: [
       { key: "plate_number", label: "Plate number", required: true }, { key: "issuing_state", label: "Issuing state" },
       { key: "plate_type", label: "Plate type" }, { key: "registration_expiration", label: "Registration expires", type: "date" },
-      { key: "effective_start", label: "Effective from", type: "date", required: true }, { key: "effective_end", label: "Effective through", type: "date" },
+      { key: "effective_start", label: "Effective from (if known)", type: "date" }, { key: "effective_end", label: "Effective through", type: "date" },
       { key: "document_id", label: "Registration document", options: [] },
     ],
     columns: [{ key: "plate_number", label: "Plate" }, { key: "issuing_state", label: "State" }, { key: "plate_type", label: "Type" }, { key: "registration_expiration", label: "Expires" }, { key: "effective_start", label: "From" }, { key: "effective_end", label: "Through" }, { key: "document_id", label: "Document" }],
@@ -72,7 +73,7 @@ const HISTORY: HistorySection[] = [
   {
     key: "assignments", label: "Assignments", singular: "assignment",
     fields: [
-      { key: "assignment_status", label: "Assignment", options: ["Assigned", "Unassigned"], required: true },
+      { key: "assignment_status", label: "Assignment", options: ["Assigned", "Unassigned", "Ended", "Suspended"], required: true },
       { key: "customer", label: "Customer" }, { key: "contract", label: "Contract" },
       { key: "assigned_driver", label: "Assigned driver" }, { key: "driver_pool", label: "Driver pool" },
       { key: "branch", label: "Branch" }, { key: "yard", label: "Yard" },
@@ -144,7 +145,7 @@ const HISTORY: HistorySection[] = [
         <table *ngIf="filteredVehicles.length; else noVehicles">
           <thead><tr><th>Vehicle</th><th>Asset ID / unit</th><th>Year · make · model</th><th>VIN</th><th>Lifecycle</th><th>Site</th><th>Actions</th></tr></thead>
           <tbody><tr *ngFor="let vehicle of filteredVehicles">
-            <td><strong>{{ display(vehicle["name"]) }}</strong><small class="cell-subtitle">{{ display(vehicle["vehicle_type"] || (vehicle["category"] === "Vehicle" ? "Needs classification" : vehicle["category"])) }}</small></td>
+            <td><strong>{{ display(vehicle["name"]) }}</strong><small class="cell-subtitle">{{ vehicleTypeLabel(vehicle) }}</small></td>
             <td>{{ display(vehicle["internal_asset_id"]) }}<small class="cell-subtitle">{{ display(vehicle["fleet_unit_number"]) }}</small></td>
             <td>{{ yearMakeModel(vehicle) }}</td><td>{{ display(vehicle["vin"]) }}</td>
             <td><span class="state">{{ display(vehicle["status"]) }}</span></td><td>{{ display(vehicle["site_name"]) }}</td>
@@ -247,6 +248,12 @@ export class VehiclesPageComponent implements OnInit {
   }
 
   display(value: unknown): string { return value == null || value === "" ? "—" : String(value); }
+
+  vehicleTypeLabel(vehicle: VehicleRow): string {
+    const type = this.display(vehicle["vehicle_type"] || vehicle["category"]);
+    const category = vehicle["category"];
+    return category && category !== vehicle["vehicle_type"] ? `${type} · ${category}` : type;
+  }
   yearMakeModel(vehicle: VehicleRow): string {
     return [vehicle["year"], vehicle["manufacturer"], vehicle["model"]].filter((value) => value != null && value !== "").join(" ") || "—";
   }
