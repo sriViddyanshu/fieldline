@@ -5,9 +5,13 @@ import { fileURLToPath } from "node:url";
 import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import mysql from "mysql2/promise";
+import dotenv from "dotenv";
+import { getGeotabOverview, startGeotabScheduler, syncGeotab } from "./geotab.js";
+import { VerificationInputError, verifyTollViolation } from "./toll-violation-verification.js";
 
 const scrypt = promisify(scryptCallback);
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
+dotenv.config({ path: join(root, ".env"), quiet: true });
 const staticDir = resolve(process.env.FIELDLINE_STATIC_DIR || join(root, "dist", "fieldline", "browser"));
 const port = Number(process.env.PORT || 3001);
 const dbName = process.env.DB_NAME || "fieldline";
@@ -36,6 +40,19 @@ const tables = {
   sites: { table: "sites", fields: ["name", "site_type", "address", "status"], required: ["name"] },
   "work-orders": { table: "work_orders", fields: ["title", "asset_id", "priority", "assigned_to", "due_date", "status"], required: ["title"] },
   incidents: { table: "incidents", fields: ["title", "asset_id", "severity", "description", "status"], required: ["title"] },
+};
+
+const violationNoticeFields = {
+  Notice_Number: 180,
+  Owner: 60,
+  License_Plate: 500,
+  Vehicle: 40,
+  Notice_date: 60,
+  Notice_Reason: 60,
+  Amount: 60,
+  Feedback: 65535,
+  Recommendation: 180,
+  Violation_Type: 180,
 };
 
 const vehicleTypes = ["Truck", "Car", "Trailer", "Equipment"];
@@ -224,6 +241,38 @@ function sendJson(res, status, value) {
     "X-Content-Type-Options": "nosniff",
   });
   res.end(body);
+}
+
+function cleanViolationNotice(body) {
+  const input = {};
+  for (const [key, maxLength] of Object.entries(violationNoticeFields)) {
+    if (!Object.hasOwn(body, key)) continue;
+    const value = body[key];
+    if (value !== null && typeof value !== "string" && typeof value !== "number") {
+      throw Object.assign(new Error(`${key} must be a string, number, or null.`), { status: 400 });
+    }
+    const normalized = value === null ? null : String(value);
+    if (normalized !== null && normalized.length > maxLength) {
+      throw Object.assign(new Error(`${key} must not exceed ${maxLength} characters.`), { status: 400 });
+    }
+    input[key] = normalized === "" ? null : normalized;
+  }
+  const unknownFields = Object.keys(body).filter((key) => !Object.hasOwn(violationNoticeFields, key));
+  if (unknownFields.length) {
+    throw Object.assign(new Error(`Unsupported field: ${unknownFields[0]}.`), { status: 400 });
+  }
+  return input;
+}
+
+function replaceMissingWithNA(value) {
+  if (value === null || value === undefined || value === "") return "NA";
+  if (Array.isArray(value)) {
+    return value.length ? value.map(replaceMissingWithNA) : "NA";
+  }
+  if (typeof value === "object" && !(value instanceof Date)) {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, replaceMissingWithNA(item)]));
+  }
+  return value;
 }
 
 async function readJson(req) {
@@ -922,10 +971,441 @@ async function handle(req, res) {
       const response = await handleAuth(req, res, path);
       if (response !== null) return response;
     }
-    if (path.startsWith("/api/")) {
+    const publicNoticeApi = path === "/api/violation-notices"
+      || path === "/api/violation-notices/summary"
+      || /^\/api\/violation-notices\/[^/]+$/.test(path);
+    if (path.startsWith("/api/") && !publicNoticeApi) {
       const user = await authenticatedUser(req);
       if (!user) return sendJson(res, 401, { error: "Authentication required" });
       actor = user;
+    }
+    if (path === "/api/geotab") {
+      if (req.method !== "GET") return sendJson(res, 405, { error: "Method not allowed." });
+      return sendJson(res, 200, await getGeotabOverview(pool));
+    }
+    if (path === "/api/geotab/sync") {
+      if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed." });
+      return sendJson(res, 200, await syncGeotab(pool, "manual"));
+    }
+    if (path === "/api/vehicles/lookup") {
+      if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed." });
+      const body = await readJson(req);
+      const plateNumber = typeof body.plateNumber === "string" ? body.plateNumber.trim() : "";
+      const vinLast4 = typeof body.vinLast4 === "string" ? body.vinLast4.trim().toUpperCase() : "";
+      const normalizedPlate = plateNumber.replace(/[\s-]/g, "").toUpperCase();
+      if (!normalizedPlate || normalizedPlate.length > 40 || !/^[A-Z0-9]+$/.test(normalizedPlate)) {
+        return sendJson(res, 400, { error: "Enter a valid plateNumber." });
+      }
+      if (!/^[A-HJ-NPR-Z0-9]{4}$/.test(vinLast4)) {
+        return sendJson(res, 400, { error: "vinLast4 must contain the last four VIN characters." });
+      }
+      const plateSql = "REPLACE(REPLACE(UPPER(TRIM(%s)), ' ', ''), '-', '')";
+      const plateExpression = (column) => plateSql.replace("%s", column);
+
+      const [vehicleMatches] = await pool.execute(
+        `SELECT a.*, s.name AS site_name
+         FROM assets a
+         LEFT JOIN sites s ON s.id = a.site_id
+         WHERE EXISTS (
+           SELECT 1 FROM vehicle_registrations r
+           WHERE r.asset_id = a.id AND ${plateExpression("r.plate_number")} = ?
+         )
+           AND RIGHT(UPPER(TRIM(a.vin)), 4) = ?
+           AND (a.vehicle_type IN ('Truck', 'Car', 'Trailer', 'Equipment') OR a.category = 'Vehicle')
+         ORDER BY a.name
+         LIMIT 3`,
+        [normalizedPlate, vinLast4],
+      );
+      const vehicleIds = [...new Set(vehicleMatches.map((row) => row.id))];
+      const inList = (values) => values.length ? values.map(() => "?").join(", ") : "NULL";
+      const vehicleIdList = inList(vehicleIds);
+      const [matchingRegistrations] = vehicleIds.length ? await pool.execute(
+        `SELECT id, asset_id, plate_number, issuing_state, plate_type, registration_expiration,
+                effective_start, effective_end
+         FROM vehicle_registrations
+         WHERE asset_id IN (${vehicleIdList})
+           AND ${plateExpression("plate_number")} = ?
+         ORDER BY effective_start DESC`,
+        [...vehicleIds, normalizedPlate],
+      ) : [[]];
+
+      const [ownershipRows] = vehicleIds.length ? await pool.execute(
+        `SELECT * FROM vehicle_ownership
+         WHERE asset_id IN (${vehicleIdList})
+         ORDER BY effective_start DESC`,
+        vehicleIds,
+      ) : [[]];
+      const [vehicleEvents] = vehicleIds.length ? await pool.execute(
+        `SELECT * FROM vehicle_events
+         WHERE asset_id IN (${vehicleIdList})
+         ORDER BY effective_at DESC
+         LIMIT 100`,
+        vehicleIds,
+      ) : [[]];
+      const [assignments] = vehicleIds.length ? await pool.execute(
+        `SELECT da.*, d.name AS driver_name, d.driver_id AS driver_reference,
+                c.name AS customer_name, c.account_number AS customer_account_number,
+                fc.contract_number, fc.toll_payer, fc.violation_payer, fc.rules_notes
+         FROM fleet_driver_assignments da
+         LEFT JOIN fleet_drivers d ON d.id = da.driver_id
+         LEFT JOIN fleet_customers c ON c.id = da.customer_id
+         LEFT JOIN fleet_contracts fc ON fc.id = da.contract_id
+         WHERE da.vehicle_id IN (${vehicleIdList})
+         ORDER BY da.assignment_start DESC`,
+        vehicleIds,
+      ) : [[]];
+      const enrollmentCondition = vehicleIds.length
+        ? `tp.vehicle_id IN (${vehicleIdList})`
+        : `${plateExpression("tp.plate_number")} = ?`;
+      const [enrollments] = await pool.execute(
+        `SELECT tp.*, ta.provider, ta.authority, ta.account_reference,
+                ta.account_display_name, ta.account_holder_legal_name,
+                ta.account_holder_type, ta.status AS account_status,
+                ta.payment_method_status, ta.last_known_balance, ta.balance_as_of
+         FROM toll_transponders tp
+         JOIN toll_accounts ta ON ta.id = tp.toll_account_id
+         WHERE ${enrollmentCondition}
+         ORDER BY tp.effective_start DESC`,
+        vehicleIds.length ? vehicleIds : [normalizedPlate],
+      );
+      const transactionVehicleClause = vehicleIds.length
+        ? `(t.vehicle_id IN (${vehicleIdList}) OR t.vehicle_id IS NULL AND ${plateExpression("t.plate_number")} = ?)`
+        : `${plateExpression("t.plate_number")} = ?`;
+      const [transactions] = await pool.execute(
+        `SELECT t.*, DATE_FORMAT(t.toll_at, '%Y-%m-%d %H:%i:%s') AS matched_timestamp,
+                NULL AS exact_time_match
+         FROM toll_transactions t
+         WHERE ${transactionVehicleClause}
+         ORDER BY t.toll_at DESC
+         LIMIT 100`,
+        [...vehicleIds, normalizedPlate],
+      );
+      const transactionIds = [...new Set(transactions.map((row) => row.id))];
+      const violationConditions = [];
+      const violationParams = [];
+      if (vehicleIds.length) {
+        violationConditions.push(`v.vehicle_id IN (${vehicleIdList})`);
+        violationParams.push(...vehicleIds);
+        violationConditions.push(`v.vehicle_id IS NULL AND ${plateExpression("v.plate_shown")} = ?`);
+        violationParams.push(normalizedPlate);
+      } else {
+        violationConditions.push(`${plateExpression("v.plate_shown")} = ?`);
+        violationParams.push(normalizedPlate);
+      }
+      const passageCondition = violationConditions.join(" OR ");
+      const transactionCondition = transactionIds.length ? ` OR v.transaction_id IN (${inList(transactionIds)})` : "";
+      const [cases] = await pool.execute(
+        `SELECT v.*, DATE_FORMAT(v.event_at, '%Y-%m-%d %H:%i:%s') AS matched_timestamp,
+                NULL AS exact_time_match
+         FROM toll_violations v
+         WHERE ((${passageCondition})${transactionCondition})
+         ORDER BY v.created_at DESC
+         LIMIT 100`,
+        [...violationParams, ...transactionIds],
+      );
+      const caseIds = [...new Set(cases.map((row) => row.id))];
+      const noticeNumbers = [...new Set(cases.map((row) => row.notice_number).filter(Boolean))];
+      const paymentConditions = [];
+      const paymentParams = [];
+      if (transactionIds.length) {
+        paymentConditions.push(`transaction_id IN (${inList(transactionIds)})`);
+        paymentParams.push(...transactionIds);
+      }
+      if (noticeNumbers.length) {
+        paymentConditions.push(`related_notice_number IN (${inList(noticeNumbers)})`);
+        paymentParams.push(...noticeNumbers);
+      }
+      const [paymentEvents] = paymentConditions.length ? await pool.execute(
+        `SELECT * FROM toll_payment_events WHERE ${paymentConditions.join(" OR ")} ORDER BY payment_at DESC LIMIT 100`,
+        paymentParams,
+      ) : [[]];
+      const [fleetPayments] = caseIds.length ? await pool.execute(
+        `SELECT * FROM fleet_payments WHERE violation_id IN (${inList(caseIds)}) ORDER BY created_at DESC LIMIT 100`,
+        caseIds,
+      ) : [[]];
+      const accountIds = [...new Set([
+        ...enrollments.map((row) => row.toll_account_id),
+        ...transactions.map((row) => row.toll_account_id),
+      ].filter(Boolean))];
+      const ledgerConditions = [];
+      const ledgerParams = [];
+      if (accountIds.length) {
+        ledgerConditions.push(`toll_account_id IN (${inList(accountIds)})`);
+        ledgerParams.push(...accountIds);
+      }
+      if (transactionIds.length) {
+        ledgerConditions.push(`transaction_id IN (${inList(transactionIds)})`);
+        ledgerParams.push(...transactionIds);
+      }
+      const paymentEventIds = [...new Set(paymentEvents.map((row) => row.id))];
+      if (paymentEventIds.length) {
+        ledgerConditions.push(`payment_event_id IN (${inList(paymentEventIds)})`);
+        ledgerParams.push(...paymentEventIds);
+      }
+      const [ledgerEntries] = ledgerConditions.length ? await pool.execute(
+        `SELECT * FROM toll_account_ledger WHERE ${ledgerConditions.join(" OR ")} ORDER BY occurred_at DESC LIMIT 200`,
+        ledgerParams,
+      ) : [[]];
+      const [balanceSnapshots] = accountIds.length ? await pool.execute(
+        `SELECT * FROM toll_account_balance_snapshots
+         WHERE toll_account_id IN (${inList(accountIds)})
+         ORDER BY snapshot_at DESC
+         LIMIT 100`,
+        accountIds,
+      ) : [[]];
+      const [tasks] = caseIds.length ? await pool.execute(
+        `SELECT * FROM fleet_tasks WHERE violation_id IN (${inList(caseIds)}) ORDER BY created_at DESC LIMIT 100`,
+        caseIds,
+      ) : [[]];
+      const [approvals] = caseIds.length ? await pool.execute(
+        `SELECT * FROM fleet_approvals WHERE violation_id IN (${inList(caseIds)}) ORDER BY created_at DESC LIMIT 100`,
+        caseIds,
+      ) : [[]];
+      const matchedVehicles = [...new Map(vehicleMatches.map((vehicle) => [vehicle.id, vehicle])).values()];
+      const candidateStoredNoticeFields = cases.length === 1 ? {
+        noticeNumber: cases[0].notice_number,
+        authority: cases[0].authority,
+        managingFmc: cases[0].managing_fmc,
+        plateShown: cases[0].plate_shown,
+        eventAt: cases[0].event_at,
+        eventDetails: cases[0].event_details,
+        amount: cases[0].amount,
+        deadline: cases[0].deadline,
+      } : "NA";
+      const matchedVehicleSummary = matchedVehicles.length === 1 ? (({ vin, ...vehicle }) => ({
+        ...vehicle,
+        vinLast4: vin ? vin.slice(-4) : "NA",
+      }))(vehicleMatches[0]) : "NA";
+      const registrationDetails = matchingRegistrations.map((registration) => ({
+        vehicleId: registration.asset_id,
+        id: registration.id,
+        plateNumber: registration.plate_number,
+        issuingState: registration.issuing_state,
+        plateType: registration.plate_type,
+        registrationExpiration: registration.registration_expiration,
+        effectiveStart: registration.effective_start,
+        effectiveEnd: registration.effective_end,
+      }));
+      const registrationsForMatchedVehicle = matchedVehicles.length === 1
+        ? registrationDetails.filter((registration) => registration.vehicleId === matchedVehicles[0].id)
+        : [];
+      const steps = {
+        receiveNotice: { status: "NOT_INTEGRATED", sourceEmail: "NA", originalPdf: "NA" },
+        readDocument: { status: "NOT_INTEGRATED", extractionMethod: "NA", OCRUsed: "NA" },
+        extractFields: { status: "NOT_INTEGRATED", candidateStoredNoticeFields, extractionConfidence: "NA" },
+        validateExtraction: {
+          status: "NOT_EVALUATED",
+          mandatoryValues: "NA",
+          unreadableFields: "NA",
+          normalizedInput: { plateNumber: normalizedPlate, vinLast4 },
+        },
+        checkAmount: {
+          status: "NOT_EVALUATED",
+          unpaidToll: "NA",
+          penalty: "NA",
+          credits: "NA",
+          totalDue: "NA",
+          storedNoticeAmounts: cases.length ? cases.map((row) => ({ noticeNumber: row.notice_number, amount: row.amount })) : "NA",
+          reconciliation: "NA",
+        },
+        createOrFindCase: {
+          matchStatus: cases.length ? "CANDIDATE_CASES_ONLY_NOTICE_NUMBER_REQUIRED" : "NOT_FOUND",
+          candidateCases: cases,
+          duplicateCheck: "NOTICE_NUMBER_REQUIRED_TO_DETECT_DUPLICATE",
+          reuseExistingCase: "NA",
+          createCaseStatus: "NOT_CREATED_BY_LOOKUP_API",
+        },
+        findVehicle: {
+          matchStatus: matchedVehicles.length === 0 ? "NOT_FOUND" : matchedVehicles.length === 1 ? "FOUND" : "MULTIPLE_MATCHES",
+          matchingVehicles: matchedVehicles.map(({ vin, ...vehicle }) => ({
+            ...vehicle,
+            vinLast4: vin ? vin.slice(-4) : "NA",
+          })),
+          matchingRegistrations: registrationDetails,
+        },
+        confirmVehicle: {
+          historicalOwnership: ownershipRows,
+          lifecycleEvents: vehicleEvents,
+          lifecycleStatusAtToll: "NA",
+          acquisitionDate: matchedVehicles.length === 1 ? matchedVehicles[0].acquisition_date : "NA",
+          disposalDate: matchedVehicles.length === 1 ? matchedVehicles[0].fleet_exit_date : "NA",
+          historicalStatusConfirmation: "TOLL_TIMESTAMP_REQUIRED",
+        },
+        findAssignment: {
+          matchStatus: assignments.length ? "CANDIDATE_ASSIGNMENTS_ONLY_TOLL_TIMESTAMP_REQUIRED" : "NOT_FOUND",
+          candidateAssignments: assignments,
+        },
+        findTollAccount: {
+          matchStatus: enrollments.length ? "ENROLLMENT_HISTORY_ONLY_TOLL_TIMESTAMP_REQUIRED" : "NOT_FOUND",
+          enrollmentHistory: enrollments,
+        },
+        checkTollAccount: {
+          accountAndEnrollmentDetails: enrollments.map((row) => ({
+            tollAccountId: row.toll_account_id,
+            accountReference: row.account_reference,
+            accountHolder: row.account_holder_legal_name,
+            accountHolderType: row.account_holder_type,
+            accountStatus: row.account_status,
+            paymentMethodStatus: row.payment_method_status,
+            transponderId: row.transponder_id,
+            enrollmentStatus: row.status,
+            effectiveStart: row.effective_start,
+            effectiveEnd: row.effective_end,
+          })),
+        },
+        findTollPassage: {
+          matchStatus: transactions.length ? "CANDIDATE_PASSAGES_ONLY_TOLL_TIMESTAMP_REQUIRED" : "NOT_FOUND",
+          candidateTransactions: transactions,
+        },
+        comparePassage: {
+          exactTimestampMatches: "NA",
+          unverifiedCandidatePassages: transactions,
+          direction: "NA",
+          locationAndAmountConfirmed: "TOLL_NOTICE_DETAILS_REQUIRED",
+          duplicatePassageDetermination: "TOLL_TIMESTAMP_REQUIRED",
+        },
+        checkPayment: { tollPaymentEvents: paymentEvents, fleetPaymentRecords: fleetPayments },
+        checkLedger: {
+          ledgerEntries,
+          balanceSnapshots,
+          debitConfirmed: "NA",
+          balanceReconciled: "NA",
+        },
+        checkPriorViolations: {
+          casesForSamePassage: "TOLL_TIMESTAMP_OR_NOTICE_NUMBER_REQUIRED",
+          candidateCasesForVehicle: cases,
+          priorOutcomeAssessment: "NA",
+        },
+        applyRules: {
+          contractRulesAndPayers: assignments.map((row) => ({
+            contractNumber: row.contract_number,
+            tollPayer: row.toll_payer,
+            violationPayer: row.violation_payer,
+            rulesNotes: row.rules_notes,
+          })),
+          evidenceRequirements: "NA",
+          classification: "NOT_EVALUATED",
+        },
+        handleException: {
+          status: "TOLL_NOTICE_DETAILS_REQUIRED_BEFORE_CLASSIFICATION",
+          mismatchedFields: "NA",
+          evidenceSaved: "NA",
+          fmcEmailSent: false,
+        },
+        prepareSummary: {
+          vehicle: matchedVehicleSummary,
+          assignment: "TOLL_TIMESTAMP_REQUIRED",
+          tollPassage: "TOLL_TIMESTAMP_REQUIRED",
+          candidatePayments: paymentEvents.length || fleetPayments.length ? { tollPaymentEvents: paymentEvents, fleetPayments } : "NA",
+          noticeTotal: "NA",
+          supportingRecords: {
+            candidateCases: cases,
+            candidateTransactions: transactions,
+            ledgerEntries,
+          },
+        },
+        chooseOutputRoute: {
+          configuredOption: "NA",
+          selectedRoute: "NA",
+          paymentPermitted: false,
+        },
+        requestApproval: {
+          approvalRecords: approvals,
+          relatedTasks: tasks,
+          authorizationStatus: "NOT_EVALUATED",
+        },
+        executePayment: {
+          status: "NOT_EXECUTED_BY_LOOKUP_API",
+          liveNoticeRecheck: "NA",
+          paymentReference: "NA",
+        },
+        confirmPayment: {
+          receipt: fleetPayments.map((row) => row.receipt_link),
+          paymentConfirmed: "NA",
+          ledgerUpdated: "NA",
+          caseMarkedPaid: "NA",
+        },
+        notifyFmc: { status: "NOT_SENT_BY_LOOKUP_API", recipient: "NA", paymentInstructions: "NA" },
+        followUp: { status: "NOT_STARTED_BY_LOOKUP_API", paymentConfirmation: "NA", reconciliation: "NA", caseClosure: "NA" },
+      };
+      return sendJson(res, 200, {
+        success: true,
+        data: replaceMissingWithNA({
+          input: { plateNumber, vinLast4 },
+          vehicle: matchedVehicles.length === 1 ? vehicleMatches[0] : "NA",
+          registration: registrationDetails.length === 1 ? registrationDetails[0] : "NA",
+          registrations: registrationDetails,
+          steps,
+        }),
+      });
+    }
+    if (path === "/api/toll-violations/verify") {
+      if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed." });
+      return sendJson(res, 200, await verifyTollViolation(pool, await readJson(req)));
+    }
+    if (path === "/api/violation-notices/summary" && req.method === "GET") {
+      const [[totals], [categories]] = await Promise.all([
+        pool.query("SELECT COUNT(*) AS count FROM `Violation_Notice`"),
+        pool.query(
+          "SELECT NULLIF(TRIM(Violation_Type), '') AS violationType, COUNT(*) AS count " +
+          "FROM `Violation_Notice` GROUP BY NULLIF(TRIM(Violation_Type), '') " +
+          "ORDER BY violationType IS NULL, violationType",
+        ),
+      ]);
+      return sendJson(res, 200, {
+        totalCount: Number(totals[0].count),
+        categories: categories.map((row) => ({
+          violationType: row.violationType,
+          label: row.violationType || "Unspecified",
+          count: Number(row.count),
+        })),
+      });
+    }
+    const noticeMatch = path.match(/^\/api\/violation-notices(?:\/([^/]+))?$/);
+    if (noticeMatch) {
+      const id = noticeMatch[1] ? decodeURIComponent(noticeMatch[1]) : null;
+      if (req.method === "GET" && !id) {
+        const violationType = url.searchParams.get("violationType");
+        const unclassified = url.searchParams.get("unclassified") === "true";
+        const where = unclassified
+          ? "WHERE Violation_Type IS NULL OR TRIM(Violation_Type) = ''"
+          : violationType ? "WHERE TRIM(Violation_Type) = ?" : "";
+        const [rows] = await pool.execute(
+          `SELECT id, Notice_Number, Owner, License_Plate, Vehicle, Notice_date, Notice_Reason,
+                  Amount, Feedback, Recommendation, Violation_Type, created_at
+           FROM \`Violation_Notice\` ${where}
+           ORDER BY created_at DESC, id`,
+          violationType && !unclassified ? [violationType] : [],
+        );
+        return sendJson(res, 200, rows);
+      }
+      if (req.method === "POST" && !id) {
+        const body = cleanViolationNotice(await readJson(req));
+        const recordId = randomUUID();
+        const columns = Object.keys(violationNoticeFields);
+        const values = columns.map((key) => body[key] ?? null);
+        await pool.execute(
+          `INSERT INTO \`Violation_Notice\` (id, ${columns.map((key) => `\`${key}\``).join(", ")})
+           VALUES (?, ${columns.map(() => "?").join(", ")})`,
+          [recordId, ...values],
+        );
+        const [rows] = await pool.execute("SELECT * FROM `Violation_Notice` WHERE id = ?", [recordId]);
+        return sendJson(res, 201, rows[0]);
+      }
+      if (req.method === "PUT" && id) {
+        const body = cleanViolationNotice(await readJson(req));
+        const columns = Object.keys(body);
+        if (!columns.length) return sendJson(res, 400, { error: "Provide at least one notice field to update." });
+        const [existing] = await pool.execute("SELECT id FROM `Violation_Notice` WHERE id = ?", [id]);
+        if (!existing.length) return sendJson(res, 404, { error: "Violation notice not found." });
+        await pool.execute(
+          `UPDATE \`Violation_Notice\` SET ${columns.map((key) => `\`${key}\` = ?`).join(", ")} WHERE id = ?`,
+          [...columns.map((key) => body[key]), id],
+        );
+        const [rows] = await pool.execute("SELECT * FROM `Violation_Notice` WHERE id = ?", [id]);
+        return sendJson(res, 200, rows[0]);
+      }
+      return sendJson(res, 405, { error: "Method not allowed." });
     }
     if (path === "/api/summary" && req.method === "GET") {
       const [[assets], [sites], [workOrders], [incidents]] = await Promise.all([
@@ -1016,6 +1496,7 @@ async function handle(req, res) {
           await writeFleetActivity(connection, actor, { vehicleId: assetId, entityType: `vehicle_${resource}`, entityId: recordId, action: "delete", before: rows[0] });
           await connection.commit();
         } catch (error) {
+          if (error instanceof VerificationInputError) return sendJson(res, error.status, { error: error.message });
           await connection.rollback();
           throw error;
         } finally {
@@ -1057,8 +1538,15 @@ async function start() {
     process.stdout.write(`Fieldline listening on http://127.0.0.1:${port}\n`);
     process.stdout.write(`MySQL database: ${dbName}\n`);
   });
+  const geotabTimer = startGeotabScheduler(pool);
+  void syncGeotab(pool, "scheduled").then((result) => {
+    process.stdout.write(`Geotab startup sync completed: ${result.devicesSeen} devices.\n`);
+  }).catch((error) => {
+    process.stderr.write(`Geotab startup sync failed: ${error.message}\n`);
+  });
 
   function shutdown() {
+    clearInterval(geotabTimer);
     server.close(() => {
       void pool.end().then(() => process.exit(0));
     });

@@ -7,6 +7,7 @@ import { AuthComponent } from "./app/auth.component";
 import { AppComponent } from "./app/app.component";
 import { AssetsPageComponent } from "./app/pages/assets/assets-page.component";
 import { FleetModulePageComponent } from "./app/pages/fleet/fleet-module-page.component";
+import { GeotabPageComponent } from "./app/pages/geotab/geotab-page.component";
 import { IncidentsPageComponent } from "./app/pages/incidents/incidents-page.component";
 import { OverviewComponent } from "./app/pages/overview/overview.component";
 import { SettingsComponent } from "./app/pages/settings/settings.component";
@@ -48,6 +49,7 @@ const routes: Routes = [
   { path: "tasks", component: FleetModulePageComponent, data: { fleetModule: "tasks" }, canActivate: [authGuard] },
   { path: "approvals", component: FleetModulePageComponent, data: { fleetModule: "approvals" }, canActivate: [authGuard] },
   { path: "incidents", component: IncidentsPageComponent, canActivate: [authGuard] },
+  { path: "geotab", component: GeotabPageComponent, canActivate: [authGuard] },
   { path: "activity", component: FleetModulePageComponent, data: { fleetModule: "activity" }, canActivate: [authGuard] },
   { path: "settings", component: SettingsComponent, canActivate: [authGuard] },
   { path: "**", redirectTo: "overview" },

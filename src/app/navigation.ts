@@ -28,5 +28,6 @@ export const SECTIONS: Section[] = [
   { id: "approvals", label: "Approvals", group: "Operations", description: "Record approvers, decisions, timestamps, and notes." },
   { id: "incidents", label: "Incidents", group: "Operations", description: "Record operational issues and track them through resolution." },
   { id: "activity", label: "Activity log", group: "Operations", description: "Review append-only before-and-after history of vehicle and fleet record changes." },
+  { id: "geotab", label: "Geotab", group: "Connections", description: "Import Geotab devices and review synchronized vehicle location and odometer telemetry." },
   { id: "settings", label: "Settings", group: "Connections", description: "Adjust workspace preferences." },
 ];

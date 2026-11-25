@@ -76,7 +76,7 @@ npm install
 Set the connection settings in the API terminal before starting it:
 
 ```powershell
-$env:DB_HOST = '127.0.0.1'
+$env:DB_HOST = '10.31.10.2'
 $env:DB_PORT = '3306'
 $env:DB_NAME = 'fieldline'
 $env:DB_USER = 'fieldline_app'
@@ -106,6 +106,32 @@ workspace's first administrator account. Once setup is complete, sign in at
 `/login`. The Angular development server proxies API calls to the Node server
 on `127.0.0.1:3001`.
 
+## Geotab telematics
+
+Set `GEOTAB_DATABASE`, `GEOTAB_USERNAME`, and `GEOTAB_PASSWORD` in the API
+process environment. For local development, the API also loads these settings
+from the repository-root `.env` file, which is excluded from Git. Optionally
+set `GEOTAB_PATH` for a non-default MyGeotab server; it defaults to
+`my.geotab.com`. Do not commit credentials or expose them to the browser.
+
+Ask a DBA to run `database/geotab-ingestion-migration.sql` against `fieldline`
+before starting the API. The migration creates dedicated device, telemetry,
+and sync-history tables; the application account needs only its existing
+`SELECT`, `INSERT`, `UPDATE`, and `DELETE` permissions.
+
+After signing in, open **Geotab** and select **Sync now** for an immediate
+import. The API also syncs on startup and every 15 minutes while running.
+Devices match existing Fieldline vehicles by VIN; subsequent imports use the
+stored Geotab device ID. Devices without a VIN match create Fieldline vehicles
+using the Geotab device details and a supported type inferred from the source,
+falling back to Equipment when no type is available. Existing vehicle master
+data is not overwritten. Each sync stores a location/status/odometer snapshot,
+and the Geotab section shows imported devices and recent sync outcomes.
+
+The Geotab SDK credentials must be accepted by the MyGeotab API. A browser
+session alone does not establish that the API login is valid. Keep the API
+username and password in the server-side `.env`; do not commit them.
+
 ## Build and run
 
 ```powershell
@@ -130,6 +156,164 @@ vehicle retains its existing UUID so work orders and incidents continue to
 reference the same record. Vehicle master data covers internal and fleet IDs,
 VIN, make/model/year, color, fuel, lifecycle status, owner/lease/FMC, fleet
 membership, acquisition, and lease dates.
+
+### Toll violation notices
+
+The Overview includes a Toll Violation Notices section backed by the existing
+`Violation_Notice` table. It displays the total notice count and counts by
+`Violation_Type`, filters the notice list by type, and expands each notice to
+show its stored fields. The notice API below currently does not require a
+session, so UiPath can call it directly.
+
+**Temporary local-only access:** the API binds to `127.0.0.1`, which limits
+these unauthenticated routes to programs on this computer. Do not bind the API
+to a network interface, expose port 3001, or deploy this configuration to a
+shared or public server. Restore authentication before changing the listener
+or using the API on a network.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/violation-notices/summary` | Total notice count and counts by violation type |
+| `GET` | `/api/violation-notices` | List all notices |
+| `GET` | `/api/violation-notices?violationType=Parking` | Filter by exact violation type |
+| `GET` | `/api/violation-notices?unclassified=true` | Notices with an empty or missing violation type |
+| `POST` | `/api/violation-notices` | Create a notice; the server generates its UUID |
+| `PUT` | `/api/violation-notices/{id}` | Update the supplied fields for a notice |
+
+Example create body (notice fields are optional and may be sent as `null`):
+
+```json
+{
+  "Notice_Number": "N-12345",
+  "Owner": "Example Fleet",
+  "License_Plate": "ABC-1234",
+  "Vehicle": "Unit 17",
+  "Notice_date": "2026-11-23",
+  "Notice_Reason": "Unpaid toll",
+  "Amount": "42.50",
+  "Feedback": "Notice details and review notes",
+  "Recommendation": "Review payment history",
+  "Violation_Type": "Unpaid toll"
+}
+```
+
+`PUT` accepts a partial body, so send only the fields to change. To clear a
+field, send it as `null` or an empty string. The API validates field names and
+the column length limits from `Violation_Notice`.
+
+### Vehicle and toll-notice bot lookup API
+
+The authenticated `POST /api/vehicles/lookup` endpoint accepts only the plate
+and last four VIN characters. It returns the vehicle and registration data
+alongside the stored records relevant to all 25 stages of the toll-notice bot
+flow:
+
+```http
+POST /api/vehicles/lookup
+Content-Type: application/json
+Cookie: fieldline_session=<session cookie>
+```
+
+```json
+{
+  "plateNumber": "ABC-1234",
+  "vinLast4": "1A23"
+}
+```
+
+The plate comparison is case-insensitive and ignores spaces and hyphens. The
+response includes the complete matched vehicle master record under
+`data.vehicle`, registration data under `data.registration` and
+`data.registrations`, and one response key for every bot step under
+`data.steps`:
+
+Abbreviated response shape (step details omitted):
+
+```json
+{
+  "success": true,
+  "data": {
+    "vehicle": {
+      "id": "vehicle-uuid",
+      "name": "Fleet vehicle",
+      "vin": "full-vin",
+      "vehicle_type": "Truck",
+      "site_name": "Main yard"
+    },
+    "registration": {
+      "id": "registration-uuid",
+      "plateNumber": "ABC-1234",
+      "issuingState": "CA",
+      "plateType": "Commercial",
+      "registrationExpiration": null,
+      "effectiveStart": null,
+      "effectiveEnd": null
+    },
+    "registrations": [
+      {
+        "vehicleId": "vehicle-uuid",
+        "id": "registration-uuid",
+        "plateNumber": "ABC-1234",
+        "issuingState": "CA"
+      }
+    ],
+    "steps": {
+      "receiveNotice": {},
+      "readDocument": {},
+      "extractFields": {},
+      "validateExtraction": {},
+      "checkAmount": {},
+      "createOrFindCase": {},
+      "findVehicle": {},
+      "confirmVehicle": {},
+      "findAssignment": {},
+      "findTollAccount": {},
+      "checkTollAccount": {},
+      "findTollPassage": {},
+      "comparePassage": {},
+      "checkPayment": {},
+      "checkLedger": {},
+      "checkPriorViolations": {},
+      "applyRules": {},
+      "handleException": {},
+      "prepareSummary": {},
+      "chooseOutputRoute": {},
+      "requestApproval": {},
+      "executePayment": {},
+      "confirmPayment": {},
+      "notifyFmc": {},
+      "followUp": {}
+    }
+  }
+}
+```
+
+The response always includes `data.steps` with keys for all 25 bot stages:
+`receiveNotice`, `readDocument`, `extractFields`, `validateExtraction`,
+`checkAmount`, `createOrFindCase`, `findVehicle`, `confirmVehicle`,
+`findAssignment`, `findTollAccount`, `checkTollAccount`, `findTollPassage`,
+`comparePassage`, `checkPayment`, `checkLedger`, `checkPriorViolations`,
+`applyRules`, `handleException`, `prepareSummary`, `chooseOutputRoute`,
+`requestApproval`, `executePayment`, `confirmPayment`, `notifyFmc`, and
+`followUp`. Any unavailable scalar or record is returned as the string `"NA"`;
+empty record lists are also `"NA"`. The supplied plate and VIN suffix identify
+the vehicle; related cases, passages, payments, assignments, and account
+enrollments are returned as candidates. Because the request contains neither
+a notice number nor a toll date/time, the API does not claim those candidates
+match the particular notice or passage. The response flags checks that need
+the notice number or timestamp; it does not guess. Multiple vehicle matches
+are flagged for review instead of selecting one silently.
+
+This endpoint only reads Fieldline data. It does not monitor mailboxes, save or
+OCR PDFs, apply configured business/evidence rules, send email, request
+approval, make payments, or mark cases paid. Those results are labeled
+`NOT_INTEGRATED`, `NOT_EVALUATED`, or `NOT_EXECUTED_BY_LOOKUP_API` rather than
+being inferred. Payment and email actions require separate authorized
+integrations and confirmed outcomes. The endpoint returns `400` for invalid
+input, `401` without an authenticated session, and `405` for other methods.
+Valid requests return `200`; if the vehicle is not found, vehicle and
+registration values are `"NA"` while all step keys are still present.
+Keep the session cookie in the consuming system's secure credential store.
 
 Each vehicle has separate histories for effective-dated ownership and fleet
 membership, license plates and registration, customer/driver/pool/site
